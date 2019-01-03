@@ -31,7 +31,7 @@ char_embedding_size|128
 tag_embedding_size|128
 lstm_units|128
 char_lstm_units|128
-sentence_lengtt|180
+sentence_length|180
 word_length|8
 num_ensemble|3
 
