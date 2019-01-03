@@ -42,7 +42,7 @@ num_ensemble|3
 ## Result
 ![leaderboard](asset/leaderboard.PNG)
 
-####1st place on NER task
+#### 1st place on NER task
 - [Named Entity Recognition(NER) Leaderboard](http://air.changwon.ac.kr/?page_id=10)
 
 ## Link
