@@ -49,6 +49,7 @@ class Dataset:
             for nerMor, nerTag in zip(ner_mor_list, ner_tag_list):
                 if nerTag == "-" or nerTag == "-_B": continue
                 nerTag = nerTag.split("_")[0]
+
                 self._check_dictionary(necessary_data["ner_morph_tag"], nerMor, nerTag)
 
         # 존재하는 어절 사전
@@ -59,10 +60,12 @@ class Dataset:
 
         # 존재하는 NER 품사 태그 사전
         necessary_data["ner_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_tag"], start=2, unk=False)
+
         self.ner_tag_size = len(necessary_data["ner_tag"])
         self.necessary_data = necessary_data
 
         # 존재하는 형태소 별 NER 품사 태그 비율 사전
+        # dataset에서 해당 형태소가 갖는 POS태그 비율 [0, 0.3, 0.4, 0.3, 0, 0, ...] 15가지 (UNK)
         necessary_data["ner_morph_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_morph_tag"], start=0, ner=True)
 
         with open(self.parameter["necessary_file"], 'wb') as f:
@@ -82,6 +85,7 @@ class Dataset:
         temp = [[], [], []]
         # TAG 정보가 없는 경우에는 tag 자리에 mor 정보가 들어온다
         for mor, tag, _, ner_mor, ner_tag in self._read_data_file(pre=False, extern_data=self.extern_data):
+
             if tag != False:
                 temp[0] += mor
                 temp[1] += tag
@@ -96,6 +100,7 @@ class Dataset:
                     ner_tag = ['O'] * i + ner_tag
                     ner_tag = ner_tag + ['O'] * (len(mor) - len(ner_tag))
                     temp[2] += ner_tag
+
             else:
                 morph = [0] * self.parameter["sentence_length"]
                 ne_dict = [[0.] * int(self.parameter["n_class"] / 2)] * self.parameter["sentence_length"]
@@ -108,12 +113,15 @@ class Dataset:
                     continue
 
                 sequence_lengths.append(len(temp[0]))
+
                 for mor, tag, neTag, index in zip(temp[0], temp[1], temp[2], range(0, len(temp[0]))):
                     morph[index] = self._search_index_by_dict(self.necessary_data["word"], mor)
                     ne_dict[index] = self._search_index_by_dict(self.necessary_data["ner_morph_tag"], mor)
+
                     if neTag != "-" and neTag != "-_B":
                         label[index] = self._search_index_by_dict(self.necessary_data["ner_tag"], neTag)
                     sub_char = [0] * self.parameter["word_length"]
+
                     for i, char in enumerate(mor):
                         if i == self.parameter["word_length"]: 
                             i-=1
@@ -186,6 +194,7 @@ class Dataset:
             seq_len = len(morphs)
 
             ner_tag_list = ['O'] * seq_len
+
             for index, ne in enumerate(sentence[2]):
                 ner_tag.append(ne.split("_")[0])
                 ner_tag_list[index] = ne
@@ -205,13 +214,13 @@ class Dataset:
             if not data in dict:
                 dict[data] = value
         elif type(value) is str:
-            if not value in dict:
+            if not data in dict:  # dict에 없으면 1로 초기화 있으면 counting
                 dict[data] = {value: 1}
+            elif value in dict[str(data)]:
+                dict[data][value] += 1
             else:
-                if value in dict[data]:
-                    dict[data][value] += 1
-                else:
-                    dict[data][value] = 1
+                dict[data][value] = 1
+
 
     def _necessary_data_sorting_and_reverse_dict(self, dict, start=1, unk=True, ner=False):
         dict_temp = {}

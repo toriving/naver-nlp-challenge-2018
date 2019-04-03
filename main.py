@@ -62,7 +62,6 @@ def iteration_model(models, dataset, parameter, train=True):
             precision_count[i], recall_count[i] = diff_model_label(dataset, precision_count[i], recall_count[i], tf_viterbi_sequence, label, seq_len)
 
 
-
         ### ensemble
 
         ensemble = np.array(stats.mode(ensemble)[0][0])
@@ -180,13 +179,17 @@ if __name__ == '__main__':
         DATASET_PATH = nsml.DATASET_PATH
     else:
         DATASET_PATH = 'data'
-    extern_data = []
-    test_data = []
 
     # 가져온 문장별 데이터셋을 이용해서 각종 정보 및 학습셋 구성
+    if parameter["mode"] == "train" and not os.path.exists(parameter["necessary_file"]):
+        extern_data = data_loader(DATASET_PATH)
+        Dataset(parameter, extern_data)
 
+    test_data = []
+    extern_data = []
     dataset = Dataset(parameter, extern_data)
     testset = Dataset(parameter, test_data)
+
 
 
 
