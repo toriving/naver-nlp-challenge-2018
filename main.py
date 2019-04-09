@@ -167,6 +167,8 @@ if __name__ == '__main__':
     parser.add_argument('--sentence_length', type=int, default=180, required=False, help='Maximum words in sentence')
     parser.add_argument('--word_length', type=int, default=8, required=False, help='Maximum chars in word')
     parser.add_argument('--num_ensemble', type=int, default=5, required=False, help='Number of submodels')
+    parser.add_argument('--file_append', type=bool, default=True, required=False, help='Update pickle')
+
 
     try:
         parameter = vars(parser.parse_args())
@@ -184,6 +186,11 @@ if __name__ == '__main__':
     if parameter["mode"] == "train" and not os.path.exists(parameter["necessary_file"]):
         extern_data = data_loader(DATASET_PATH)
         Dataset(parameter, extern_data)
+    elif parameter['file_append'] and os.path.exists(parameter["necessary_file"]):
+        extern_data = data_loader(DATASET_PATH)
+        Dataset(parameter, extern_data, True)
+
+
 
     test_data = []
     extern_data = []
