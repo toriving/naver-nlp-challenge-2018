@@ -9,7 +9,7 @@ Team : State_Of_The_Art (박동주)
 ## NER model architecture
 ![model](asset/model.PNG)  
 
-* The code is implimented based on [baseline model](https://github.com/naver/nlp-challenge/tree/master/missions/ner)
+* The code is implemented based on [baseline model](https://github.com/naver/nlp-challenge/tree/master/missions/ner)
 * Bidirectional LSTM + CRF
 * Embedding layer consists of Word, character(LSTM), and named entity together
 * Shuffle training data on every epoch
