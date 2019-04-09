@@ -8,12 +8,14 @@ import pickle
 import sys
 
 class Dataset:
-    def __init__(self, parameter, extern_data):
+    def __init__(self, parameter, extern_data, file_append=False):
         self.parameter = parameter
         self.extern_data = extern_data
 
         if parameter["mode"] == "train" and not os.path.exists(parameter["necessary_file"]):
             self._make_necessary_data_by_train_data()
+        elif file_append and os.path.exists(parameter["necessary_file"]):
+            self._append_necessary_data_by_train_data()
         else:
             with open(parameter["necessary_file"], 'rb') as f:
                 self.necessary_data = pickle.load(f)
@@ -67,6 +69,61 @@ class Dataset:
         # 존재하는 형태소 별 NER 품사 태그 비율 사전
         # dataset에서 해당 형태소가 갖는 POS태그 비율 [0, 0.3, 0.4, 0.3, 0, 0, ...] 15가지 (UNK)
         necessary_data["ner_morph_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_morph_tag"], start=0, ner=True)
+
+        with open(self.parameter["necessary_file"], 'wb') as f:
+            pickle.dump(necessary_data, f)
+
+
+    def _append_necessary_data_by_train_data(self):
+        with open(self.parameter["necessary_file"], 'rb') as f:
+            necessary_data = pickle.load(f)
+
+        ner_morph_tag_temp = dict()
+        for morphs, tags, ner_tag, ner_mor_list, ner_tag_list in self._read_data_file(extern_data=self.extern_data):
+            for mor, tag in zip(morphs, tags):
+                self._check_dictionary(necessary_data["word"], mor)
+
+                for char in mor:
+                    self._check_dictionary(necessary_data["character"], char)
+
+            if type(ner_tag) is list:
+                for ne in ner_tag:
+                    if ne == "-":
+                        continue
+                    self._check_dictionary(necessary_data["ner_tag"], ne + "_B")
+                    self._check_dictionary(necessary_data["ner_tag"], ne + "_I")
+            else:
+                self._check_dictionary(necessary_data["ner_tag"], ner_tag + "_B")
+                self._check_dictionary(necessary_data["ner_tag"], ner_tag + "_I")
+
+            for nerMor, nerTag in zip(ner_mor_list, ner_tag_list):
+                if nerTag == "-" or nerTag == "-_B": continue
+                nerTag = nerTag.split("_")[0]
+
+                self._check_dictionary(ner_morph_tag_temp, nerMor, nerTag)
+
+        # 존재하는 어절 사전
+        del necessary_data['word']['PAD'], necessary_data['word']['UNK']
+        necessary_data["word"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["word"], start=2)
+
+        # 존재하는 음절 사전
+        del necessary_data['character']['PAD'], necessary_data['character']['UNK']
+        necessary_data["character"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["character"],
+                                                                                    start=2)
+
+        # 존재하는 NER 품사 태그 사전
+        del necessary_data['ner_tag']['O'], necessary_data['ner_tag']['PAD']
+        necessary_data["ner_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_tag"], start=2,
+                                                                                  unk=False)
+        self.ner_tag_size = len(necessary_data["ner_tag"])
+        self.necessary_data = necessary_data
+
+        # 존재하는 형태소 별 NER 품사 태그 비율 사전
+        # dataset에서 해당 형태소가 갖는 POS태그 비율 [0, 0.3, 0.4, 0.3, 0, 0, ...] 15가지 (UNK)
+        ner_morph_tag_temp = self._necessary_data_sorting_and_reverse_dict(ner_morph_tag_temp,
+                                                                                        start=0, ner=True)
+        necessary_data["ner_morph_tag"].update(ner_morph_tag_temp)
+
 
         with open(self.parameter["necessary_file"], 'wb') as f:
             pickle.dump(necessary_data, f)
@@ -250,6 +307,9 @@ class Dataset:
 
 if __name__ == "__main__":
     # dataset = Dataset({"input_dir": "data/NER.sample.txt"})
+
     with open('necessary.pkl', 'rb') as f:
         necessary_data = pickle.load(f)
         print(necessary_data['ner_morph_tag']['비토리오'])
+
+        print(necessary_data['ner_tag'])
