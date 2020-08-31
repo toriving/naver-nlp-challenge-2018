@@ -3,9 +3,6 @@ import numpy as np
 import argparse
 
 def diff_model_label(dataset, precision, recall, models, labels, seq_len):
-    # precision = np.array([ 0. , 0. ]) # 전체 정답 중에 실제 정답 갯수
-    # recall = np.array([ 0. , 0. ]) # 실제 태깅한 NER 태그 중에 정답 갯수
-
     reverse_tag = {v: k for k, v in dataset.necessary_data["ner_tag"].items()}
     for index, model, label in zip(range(0, len(models)), models, labels):
         modelAnswer = get_ner_tag_list_by_numeric(reverse_tag, model, seq_len[index])
@@ -161,7 +158,7 @@ def evaluate_by_tag_loc(precision, recall, models, labels):
 
 
 def calculation_correct(target, diff):
-    value = [0., 0.]  # 0번 정답, 1번 전체갯수
+    value = [0., 0.]
     if isinstance(target, dict):
         for key in target:
             for nerRange in target[key]:

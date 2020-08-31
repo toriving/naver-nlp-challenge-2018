@@ -56,13 +56,13 @@ class Dataset:
 
                 self._check_dictionary(necessary_data["ner_morph_tag"], nerMor, nerTag)
 
-        # 존재하는 어절 사전
+        # word dictionary
         necessary_data["word"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["word"], start=2)
 
-        # 존재하는 음절 사전
+        # character dictionary
         necessary_data["character"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["character"], start=2)
 
-        # 존재하는 NER 품사 태그 사전
+        # NER dictionary
         necessary_data["ner_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_tag"], start=2, unk=False)
 
         necessary_data["size"] = self.size
@@ -70,8 +70,8 @@ class Dataset:
         self.ner_tag_size = len(necessary_data["ner_tag"])
         self.necessary_data = necessary_data
 
-        # 존재하는 형태소 별 NER 품사 태그 비율 사전
-        # dataset에서 해당 형태소가 갖는 POS태그 비율 [0, 0.3, 0.4, 0.3, 0, 0, ...] 15가지 (UNK)
+        # NER part-of-speech tag ratio dictionary by morpheme
+        # The proportion of POS tags that the morpheme has in the dataset [0, 0.3, 0.4, 0.3, 0, 0, ...] 15 (UNK)
         necessary_data["ner_morph_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_morph_tag"], start=0, ner=True)
 
         with open(self.parameter["necessary_file"], 'wb') as f:
@@ -89,7 +89,7 @@ class Dataset:
             self.extern_data = extern_data
 
         temp = [[], [], []]
-        # TAG 정보가 없는 경우에는 tag 자리에 mor 정보가 들어온다
+        # If there is no TAG information, mor information is entered in the tag position.
         for mor, tag, _, ner_mor, ner_tag in self._read_data_file(pre=False, extern_data=self.extern_data):
 
             if tag != False:
@@ -222,7 +222,7 @@ class Dataset:
                 dict[data] = value
 
         elif type(value) is str:
-            if not data in dict:  # dict에 없으면 1로 초기화 있으면 counting
+            if not data in dict:  # Initialize to 1 if not in dict, counting if present
                 dict[data] = {value: 1}
             elif value in dict[str(data)]:
                 dict[data][value] += 1
