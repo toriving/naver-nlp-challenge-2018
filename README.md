@@ -3,7 +3,7 @@ Named Entity Recognition Model for Naver NLP Challenge 2018
 __[Presentation file](asset/nlp_challenge.pdf)__
 
 ## NER model for Naver NLP Challenge 2018
-Team : State_Of_The_Art (박동주)  
+Team : State_Of_The_Art (Dongju Park)  
 1st place on Naver NLP Challenge 2018 NER task  
 
 ## NER model architecture
@@ -38,6 +38,31 @@ num_ensemble|3
 - Converge between 13 and 15 epochs  
 - In this code, the default value of num_ensemble is set to __5__, but I set it to __3__ when submitting the model
 
+## Usage
+
+```shell script
+$ python main.py
+```
+
+```shell script
+$ python main.py \
+        --mode <Choice operation mode> \
+        --dinput_dir <Input data directory> \
+        --output_dir <Output data directory> \
+        --necessary_file <necessary_file> \
+        --epochs <num_epoch> \
+        --batch_size <batch_size> \
+        --learning_rate <learning_rate> \
+        --keep_prob <dropout_rate> \
+        --word_embedding_size <Word, WordPos Embedding Size> \
+        --char_embedding_size <Char Embedding Size> \
+        --tag_embedding_size <Tag Embedding Size> \
+        --lstm_units <Hidden unit size> \
+        --char_lstm_units <Hidden unit size for Char rnn> \
+        --sentence_length <Maximum words in sentence> \
+        --word_length <Maximum chars in word> \
+        --num_ensemble <Number of submodels> 
+```
 
 ## Result
 ![leaderboard](asset/leaderboard.PNG)
