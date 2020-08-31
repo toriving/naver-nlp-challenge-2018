@@ -39,6 +39,7 @@ def calculation_measure(num_model, precision, recall):
 
     return f1Measure, precisionRate, recallRate
 
+
 def calculation_measure_ensemble(precision, recall):
     if precision[1] == 0:
         precisionRate = 0.0
@@ -57,6 +58,7 @@ def calculation_measure_ensemble(precision, recall):
 
     return f1Measure, precisionRate, recallRate
 
+
 def get_ner_bi_tag_list_in_sentence(reverse_tag, result, max_len):
     nerAnswer = []
     for m in result[:max_len]:
@@ -66,6 +68,7 @@ def get_ner_bi_tag_list_in_sentence(reverse_tag, result, max_len):
         else:
             nerAnswer.append(nerTag)
     return nerAnswer
+
 
 def get_ner_tag_list_by_numeric(reverse_tag, result, max_len):
     nerAnswer = []
@@ -108,6 +111,7 @@ def get_ner_tag_list_by_string(results):
                 nerPrev = nerTag
         nerAnswers.append(nerAnswer)
     return nerAnswers
+
 
 def read_prediction(prediction_file):
     pred_array = []
@@ -171,22 +175,3 @@ def calculation_correct(target, diff):
                 value[0] += 1
 
     return np.array(value)
-
-
-if __name__ == "__main__":
-
-    #output type
-    #[ ['4:4_CVL', "20:21_EVT", "21:22_FLD"], [] ]
-
-    args = argparse.ArgumentParser()
-    args.add_argument('--prediction', type=str, default='pred.txt')
-    config = args.parse_args()
-
-    test_label_path = '/data/NER/test/test_label'
-    try:
-        print(evaluation_metrics(config.prediction, test_label_path))
-    except:
-        # 에러로인한 0점
-        print("0")
-
-    # print(evaluation_metrics(config.prediction, test_label_path))
