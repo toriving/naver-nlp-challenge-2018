@@ -2,23 +2,22 @@
 
 import numpy as np
 import os
-import re
 import operator
 import pickle
 import sys
+from data_loader import data_loader
 
 class Dataset:
-    def __init__(self, parameter, extern_data, file_append=False):
+    def __init__(self, parameter, extern_data):
         self.parameter = parameter
         self.extern_data = extern_data
 
         if parameter["mode"] == "train" and not os.path.exists(parameter["necessary_file"]):
             self._make_necessary_data_by_train_data()
-        elif file_append and os.path.exists(parameter["necessary_file"]):
-            self._append_necessary_data_by_train_data()
         else:
             with open(parameter["necessary_file"], 'rb') as f:
                 self.necessary_data = pickle.load(f)
+                self.size = self.necessary_data["size"]
 
         self.parameter["embedding"] = [
                 [ "word", len(self.necessary_data["word"]), parameter["word_embedding_size"]],
@@ -26,6 +25,9 @@ class Dataset:
             ]
 
         self.parameter["n_class"] = len(self.necessary_data["ner_tag"])
+
+    def __len__(self):
+        return self.size
 
     def _make_necessary_data_by_train_data(self):
         necessary_data = {"word": {}, "character": {},
@@ -54,76 +56,23 @@ class Dataset:
 
                 self._check_dictionary(necessary_data["ner_morph_tag"], nerMor, nerTag)
 
-        # 존재하는 어절 사전
+        # word dictionary
         necessary_data["word"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["word"], start=2)
 
-        # 존재하는 음절 사전
+        # character dictionary
         necessary_data["character"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["character"], start=2)
 
-        # 존재하는 NER 품사 태그 사전
+        # NER dictionary
         necessary_data["ner_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_tag"], start=2, unk=False)
 
+        necessary_data["size"] = self.size
+
         self.ner_tag_size = len(necessary_data["ner_tag"])
         self.necessary_data = necessary_data
 
-        # 존재하는 형태소 별 NER 품사 태그 비율 사전
-        # dataset에서 해당 형태소가 갖는 POS태그 비율 [0, 0.3, 0.4, 0.3, 0, 0, ...] 15가지 (UNK)
+        # NER part-of-speech tag ratio dictionary by morpheme
+        # The proportion of POS tags that the morpheme has in the dataset [0, 0.3, 0.4, 0.3, 0, 0, ...] 15 (UNK)
         necessary_data["ner_morph_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_morph_tag"], start=0, ner=True)
-
-        with open(self.parameter["necessary_file"], 'wb') as f:
-            pickle.dump(necessary_data, f)
-
-
-    def _append_necessary_data_by_train_data(self):
-        with open(self.parameter["necessary_file"], 'rb') as f:
-            necessary_data = pickle.load(f)
-
-        ner_morph_tag_temp = dict()
-        for morphs, tags, ner_tag, ner_mor_list, ner_tag_list in self._read_data_file(extern_data=self.extern_data):
-            for mor, tag in zip(morphs, tags):
-                self._check_dictionary(necessary_data["word"], mor)
-
-                for char in mor:
-                    self._check_dictionary(necessary_data["character"], char)
-
-            if type(ner_tag) is list:
-                for ne in ner_tag:
-                    if ne == "-":
-                        continue
-                    self._check_dictionary(necessary_data["ner_tag"], ne + "_B")
-                    self._check_dictionary(necessary_data["ner_tag"], ne + "_I")
-            else:
-                self._check_dictionary(necessary_data["ner_tag"], ner_tag + "_B")
-                self._check_dictionary(necessary_data["ner_tag"], ner_tag + "_I")
-
-            for nerMor, nerTag in zip(ner_mor_list, ner_tag_list):
-                if nerTag == "-" or nerTag == "-_B": continue
-                nerTag = nerTag.split("_")[0]
-
-                self._check_dictionary(ner_morph_tag_temp, nerMor, nerTag)
-
-        # 존재하는 어절 사전
-        del necessary_data['word']['PAD'], necessary_data['word']['UNK']
-        necessary_data["word"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["word"], start=2)
-
-        # 존재하는 음절 사전
-        del necessary_data['character']['PAD'], necessary_data['character']['UNK']
-        necessary_data["character"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["character"],
-                                                                                    start=2)
-
-        # 존재하는 NER 품사 태그 사전
-        del necessary_data['ner_tag']['O'], necessary_data['ner_tag']['PAD']
-        necessary_data["ner_tag"] = self._necessary_data_sorting_and_reverse_dict(necessary_data["ner_tag"], start=2,
-                                                                                  unk=False)
-        self.ner_tag_size = len(necessary_data["ner_tag"])
-        self.necessary_data = necessary_data
-
-        # 존재하는 형태소 별 NER 품사 태그 비율 사전
-        # dataset에서 해당 형태소가 갖는 POS태그 비율 [0, 0.3, 0.4, 0.3, 0, 0, ...] 15가지 (UNK)
-        ner_morph_tag_temp = self._necessary_data_sorting_and_reverse_dict(ner_morph_tag_temp,
-                                                                                        start=0, ner=True)
-        necessary_data["ner_morph_tag"].update(ner_morph_tag_temp)
-
 
         with open(self.parameter["necessary_file"], 'wb') as f:
             pickle.dump(necessary_data, f)
@@ -140,7 +89,7 @@ class Dataset:
             self.extern_data = extern_data
 
         temp = [[], [], []]
-        # TAG 정보가 없는 경우에는 tag 자리에 mor 정보가 들어온다
+        # If there is no TAG information, mor information is entered in the tag position.
         for mor, tag, _, ner_mor, ner_tag in self._read_data_file(pre=False, extern_data=self.extern_data):
 
             if tag != False:
@@ -204,14 +153,14 @@ class Dataset:
 
     def get_data_batch_size(self, n, train=True):
         if train:
-            for i, step in enumerate(range(0, self.parameter["train_lines"], n)):
+            for i, step in enumerate(range(0, self.size, n)):
                 if len(self.morphs[step:step + n]) == n:
                     yield self.morphs[step:step+n], self.ne_dicts[step:step+n], self.characters[step:step+n], \
                         self.sequence_lengths[step:step+n], self.character_lengths[step:step+n], \
                         self.labels[step:step+n], i
         else:
-            for i, step in enumerate(range(0, self.parameter["train_lines"], n)):
-                if len(self.morphs[step:step+n]) == n:
+            for i, step in enumerate(range(0, self.size, n)):
+                if len(self.morphs[step:step + n]) == n:
                     yield self.morphs[step:step+n], self.ne_dicts[step:step+n], self.characters[step:step+n], \
                         self.sequence_lengths[step:step+n], self.character_lengths[step:step+n], \
                         self.labels[step:step+n], i
@@ -236,6 +185,8 @@ class Dataset:
     def _read_data_file(self, pre=True, extern_data=None):
         if extern_data is not None:
             return self._read_extern_data_file(pre, self.extern_data)
+        else:
+            raise FileNotFoundError
 
     def _read_extern_data_file(self, pre=True, extern_data=None):
         cntLine = 0
@@ -263,15 +214,15 @@ class Dataset:
             if cntLine % 1000 == 0:
                 sys.stderr.write("%d Lines .... \r" % ( cntLine ))
 
-                if self.parameter["train_lines"] < cntLine:
-                    break
+        self.size = cntLine
 
     def _check_dictionary(self, dict, data, value=0):
         if type(value) is int:
             if not data in dict:
                 dict[data] = value
+
         elif type(value) is str:
-            if not data in dict:  # dict에 없으면 1로 초기화 있으면 counting
+            if not data in dict:  # Initialize to 1 if not in dict, counting if present
                 dict[data] = {value: 1}
             elif value in dict[str(data)]:
                 dict[data][value] += 1
@@ -306,10 +257,19 @@ class Dataset:
 
 
 if __name__ == "__main__":
-    # dataset = Dataset({"input_dir": "data/NER.sample.txt"})
+    extern_data = data_loader("data_in")
+    dataset = Dataset({"mode": "train",
+                       "necessary_file": "necessary.pkl",
+                       "word_embedding_size": 32,
+                       "char_embedding_size": 32},
+                      extern_data)
+
+    print(len(dataset))
 
     with open('necessary.pkl', 'rb') as f:
         necessary_data = pickle.load(f)
-        print(necessary_data['ner_morph_tag']['비토리오'])
-
+        print(necessary_data.keys())
+        print(necessary_data['character'])
+        print(necessary_data['word']["홀인"])
+        print(necessary_data['ner_morph_tag']["홀인"])
         print(necessary_data['ner_tag'])

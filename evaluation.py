@@ -3,9 +3,6 @@ import numpy as np
 import argparse
 
 def diff_model_label(dataset, precision, recall, models, labels, seq_len):
-    # precision = np.array([ 0. , 0. ]) # 전체 정답 중에 실제 정답 갯수
-    # recall = np.array([ 0. , 0. ]) # 실제 태깅한 NER 태그 중에 정답 갯수
-
     reverse_tag = {v: k for k, v in dataset.necessary_data["ner_tag"].items()}
     for index, model, label in zip(range(0, len(models)), models, labels):
         modelAnswer = get_ner_tag_list_by_numeric(reverse_tag, model, seq_len[index])
@@ -39,6 +36,7 @@ def calculation_measure(num_model, precision, recall):
 
     return f1Measure, precisionRate, recallRate
 
+
 def calculation_measure_ensemble(precision, recall):
     if precision[1] == 0:
         precisionRate = 0.0
@@ -57,6 +55,7 @@ def calculation_measure_ensemble(precision, recall):
 
     return f1Measure, precisionRate, recallRate
 
+
 def get_ner_bi_tag_list_in_sentence(reverse_tag, result, max_len):
     nerAnswer = []
     for m in result[:max_len]:
@@ -66,6 +65,7 @@ def get_ner_bi_tag_list_in_sentence(reverse_tag, result, max_len):
         else:
             nerAnswer.append(nerTag)
     return nerAnswer
+
 
 def get_ner_tag_list_by_numeric(reverse_tag, result, max_len):
     nerAnswer = []
@@ -108,6 +108,7 @@ def get_ner_tag_list_by_string(results):
                 nerPrev = nerTag
         nerAnswers.append(nerAnswer)
     return nerAnswers
+
 
 def read_prediction(prediction_file):
     pred_array = []
@@ -157,7 +158,7 @@ def evaluate_by_tag_loc(precision, recall, models, labels):
 
 
 def calculation_correct(target, diff):
-    value = [0., 0.]  # 0번 정답, 1번 전체갯수
+    value = [0., 0.]
     if isinstance(target, dict):
         for key in target:
             for nerRange in target[key]:
@@ -171,22 +172,3 @@ def calculation_correct(target, diff):
                 value[0] += 1
 
     return np.array(value)
-
-
-if __name__ == "__main__":
-
-    #output type
-    #[ ['4:4_CVL', "20:21_EVT", "21:22_FLD"], [] ]
-
-    args = argparse.ArgumentParser()
-    args.add_argument('--prediction', type=str, default='pred.txt')
-    config = args.parse_args()
-
-    test_label_path = '/data/NER/test/test_label'
-    try:
-        print(evaluation_metrics(config.prediction, test_label_path))
-    except:
-        # 에러로인한 0점
-        print("0")
-
-    # print(evaluation_metrics(config.prediction, test_label_path))

@@ -3,41 +3,41 @@
 import tensorflow as tf
 
 class Model:
-    def __init__(self, parameter,i):
+    def __init__(self, parameter, model_number):
         self.parameter = parameter
-        self.number = str(i)
+        self.model_number = str(model_number)
 
     def build_model(self):
-        with tf.variable_scope(self.number):
+        with tf.variable_scope(self.model_number):
             self._build_placeholder()
 
             # { "morph": 0, "morph_tag": 1, "tag" : 2, "character": 3, .. }
             self._embedding_matrix = []
             for item in self.parameter["embedding"]:
-                self._embedding_matrix.append(self._build_embedding(item[1], item[2], name="embedding_" + self.number + item[0]))
+                self._embedding_matrix.append(self._build_embedding(item[1], item[2], name="embedding_" + self.model_number + item[0]))
 
-            # 각각의 임베딩 값을 가져온다
+            # Bring Embedding
             self._embeddings = []
             self._embeddings.append(tf.nn.embedding_lookup(self._embedding_matrix[0], self.morph))
             self._embeddings.append(tf.nn.embedding_lookup(self._embedding_matrix[1], self.character))
 
-            # 음절을 이용한 임베딩 값을 구한다.
+            # Find the embedding value using character.
             character_embedding = tf.reshape(self._embeddings[1], [-1, self.parameter["word_length"], self.parameter["embedding"][1][2]])
             char_len = tf.reshape(self.character_len, [-1])
 
-            character_emb_rnn, _, _ = self._build_birnn_model(character_embedding, char_len, self.parameter["char_lstm_units"], self.dropout_rate, last=True, scope="char_layer" + self.number)
+            character_emb_rnn, _, _ = self._build_birnn_model(character_embedding, char_len, self.parameter["char_lstm_units"], self.dropout_rate, last=True, scope="char_layer" + self.model_number)
 
-            # 위에서 구한 모든 임베딩 값을 concat 한다.
+            # Concat all embedding values obtained above.
             all_data_emb = self.ne_dict
             for i in range(0, len(self._embeddings)-1):
                 all_data_emb = tf.concat([all_data_emb, self._embeddings[i]], axis=2)
             all_data_emb = tf.concat([all_data_emb, character_emb_rnn], axis=2)
 
-            # 모든 데이터를 가져와서 Bi-RNN 실시
-            sentence_output, W, B = self._build_birnn_model(all_data_emb, self.sequence, self.parameter["lstm_units"], self.dropout_rate, scope="all_data_layer" + self.number)
+            # Bring all data and conduct Bi-RNN
+            sentence_output, W, B = self._build_birnn_model(all_data_emb, self.sequence, self.parameter["lstm_units"], self.dropout_rate, scope="all_data_layer" + self.model_number)
             sentence_output = tf.matmul(sentence_output, W) + B
 
-            # 마지막으로 CRF 를 실시 한다
+            # CRF
             crf_cost, crf_weight, crf_bias = self._build_crf_layer(sentence_output)
 
             self.train_op = self._build_output_layer(crf_cost)
@@ -95,7 +95,7 @@ class Model:
         return outputs, W, b
 
     def _build_crf_layer(self, target):
-        with tf.variable_scope("crf_layer" + self.number):
+        with tf.variable_scope("crf_layer" + self.model_number):
             W, B = self._build_weight([self.parameter["n_class"], self.parameter["n_class"]], scope="weight_bias")
             matricized_unary_scores = tf.matmul(target, W) + B
             matricized_unary_scores = tf.reshape(matricized_unary_scores, [-1, self.parameter["sentence_length"], self.parameter["n_class"]])
@@ -115,15 +115,10 @@ class Model:
 
 
 if __name__ == "__main__":
-    parameter = {"embedding" : {
-                    "morph" : [ 10, 10 ],
-                    "morph_tag" : [ 10, 10 ],
-                    "tag" : [ 10, 10 ],
-                    "ne_dict" : [ 10, 10 ],
-                    "character" : [ 10, 10 ],
-                    }, "lstm_units" : 32, "keep_prob" : 0.65,
+    parameter = {"embedding" : [['word', 10, 10], ['character', 10, 10]],
+                    "lstm_units" : 32, "keep_prob" : 0.65,
                     "sequence_length": 300, "n_class" : 100, "batch_size": 128,
-                    "learning_rate" : 0.002
+                    "learning_rate": 0.002, "word_length": 8, "char_lstm_units": 128, "sentence_length": 180
                 }
-    model = Model(parameter)
+    model = Model(parameter, 0)
     model.build_model()
