@@ -2,12 +2,13 @@
 
 import tensorflow as tf
 import numpy as np
+import os
 import sys
 import argparse
 from model import Model
 from dataset_batch import Dataset
-from data_loader import data_loader
-from evaluation import diff_model_label, calculation_measure, calculation_measure_ensemble
+from data_loader import data_loader, test_data_loader
+from evaluation import diff_model_label, calculation_measure, calculation_measure_ensemble, get_ner_bi_tag_list_in_sentence
 from scipy import stats
 from tqdm import tqdm
 
@@ -32,7 +33,7 @@ def iteration_model(models, dataset, parameter, train=True):
         keep_prob = 1.0
 
     batch_gen = dataset.get_data_batch_size(parameter["batch_size"], train)
-    total_iter = int(len(dataset) / parameter["batch_size"] + 1)
+    total_iter = int(len(dataset) / parameter["batch_size"])
 
     for morph, ne_dict, character, seq_len, char_len, label, step in tqdm(batch_gen, total=total_iter):
         ensemble = []
@@ -74,11 +75,58 @@ def iteration_model(models, dataset, parameter, train=True):
         e_precision_count, e_recall_count = diff_model_label(dataset, e_precision_count, e_recall_count,
                                                                ensemble, label, seq_len)
 
-
-
     return avg_cost / (step + 1), 100.0 * avg_correct / total_labels.astype(float), precision_count, recall_count, \
         100.0 * e_avg_correct / e_total_labels.astype(float), e_precision_count, e_recall_count
 
+
+def save(dir_name):
+    os.makedirs(dir_name, exist_ok=True)
+    saver = tf.train.Saver()
+    saver.save(sess, os.path.join(dir_name, 'model'), global_step=models[0].global_step)
+
+
+def load(dir_name):
+    saver = tf.train.Saver()
+
+    ckpt = tf.train.get_checkpoint_state(dir_name)
+    if ckpt and ckpt.model_checkpoint_path:
+        checkpoint = os.path.basename(ckpt.model_checkpoint_path)
+        saver.restore(sess, os.path.join(dir_name, checkpoint))
+    else:
+        raise NotImplemented('No checkpoint!')
+    print('model loaded!')
+
+
+def infer(input):
+    # Customize the reference code before using it.
+    pred = []
+    test_loader.parameter["train_lines"] = len(input)
+    test_loader.make_input_data(input)
+    reverse_tag = {v: k for k, v in test_loader.necessary_data["ner_tag"].items()}
+
+    batch_gen = test_loader.get_data_batch_size(parameter["batch_size"], False)
+    total_iter = int(len(test_loader) / parameter["batch_size"])
+
+    for morph, ne_dict, character, seq_len, char_len, _, step in tqdm(batch_gen, total=total_iter):
+        ensemble = []
+        for model in models:
+            feed_dict = { model.morph : morph,
+                          model.ne_dict : ne_dict,
+                          model.character : character,
+                          model.sequence : seq_len,
+                          model.character_len : char_len,
+                          model.dropout_rate : 1.0
+                        }
+
+            viters = sess.run(model.viterbi_sequence, feed_dict=feed_dict)
+            ensemble.append(viters)
+        ensemble = list(stats.mode(ensemble)[0][0])
+        for index, viter in zip(range(0, len(ensemble)), ensemble):
+            pred.append(get_ner_bi_tag_list_in_sentence(reverse_tag, viter, seq_len[index]))
+
+    padded_array = np.zeros(len(pred))
+
+    return list(zip(padded_array, pred))
 
 
 if __name__ == '__main__':
@@ -164,3 +212,17 @@ if __name__ == '__main__':
                 print(str(i) + '_Val : [Val] F1Measure : {:.6f} Precision : {:.6f} Recall : {:.6f}'.format(f1Measure[i], precision[i], recall[i]))
             print('Ensemble [Val] F1Measure : {:.6f} Precision : {:.6f} Recall : {:.6f}'.format(e_f1Measure, e_precision,  e_recall))
             print('=' * 100)
+
+            save(parameter["output_dir"])
+
+    if parameter["mode"] == "test":
+        load(parameter["output_dir"])
+
+        # For test dataset with label
+        test_data = data_loader(parameter["input_dir"])
+        print(infer(test_data))
+
+        # For test dataset without label
+        test_data = test_data_loader(parameter["input_dir"])
+        print(infer(test_data))
+
