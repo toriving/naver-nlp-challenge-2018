@@ -9,6 +9,8 @@ from dataset_batch import Dataset
 from data_loader import data_loader
 from evaluation import diff_model_label, calculation_measure, calculation_measure_ensemble
 from scipy import stats
+from tqdm import tqdm
+
 
 def iteration_model(models, dataset, parameter, train=True):
     precision_count = np.zeros((parameter["num_ensemble"], 2))
@@ -18,7 +20,6 @@ def iteration_model(models, dataset, parameter, train=True):
     total_labels = np.zeros(parameter["num_ensemble"])
     correct_labels = np.zeros(parameter["num_ensemble"])
     dataset.shuffle_data()
-
 
     e_precision_count = np.array([ 0. , 0. ])
     e_recall_count = np.array([ 0. , 0. ])
@@ -30,7 +31,10 @@ def iteration_model(models, dataset, parameter, train=True):
     else:
         keep_prob = 1.0
 
-    for morph, ne_dict, character, seq_len, char_len, label, step in dataset.get_data_batch_size(parameter["batch_size"], train):
+    batch_gen = dataset.get_data_batch_size(parameter["batch_size"], train)
+    total_iter = int(len(dataset) / parameter["batch_size"] + 1)
+
+    for morph, ne_dict, character, seq_len, char_len, label, step in tqdm(batch_gen, total=total_iter):
         ensemble = []
 
         for i, model in enumerate(models):
@@ -58,9 +62,7 @@ def iteration_model(models, dataset, parameter, train=True):
             avg_correct[i] += correct_labels[i]
             precision_count[i], recall_count[i] = diff_model_label(dataset, precision_count[i], recall_count[i], tf_viterbi_sequence, label, seq_len)
 
-
         # Calculation for ensemble measure
-
         ensemble = np.array(stats.mode(ensemble)[0][0])
 
         mask = (np.expand_dims(np.arange(parameter["sentence_length"]), axis=0) <
@@ -81,12 +83,8 @@ def iteration_model(models, dataset, parameter, train=True):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=sys.argv[0] + " description")
-    parser.add_argument('--verbose', default=False, required=False, action='store_true', help='verbose')
 
     parser.add_argument('--mode', type=str, default="train", required=False, help='Choice operation mode')
-    parser.add_argument('--iteration', type=int, default=0, help='fork 명령어를 사용할때 iteration 값에 매칭되는 모델이 로드됩니다.')
-    parser.add_argument('--pause', type=int, default=0, help='모델이 load 될때 1로 설정됩니다.')
-
     parser.add_argument('--input_dir', type=str, default="data_in", required=False, help='Input data directory')
     parser.add_argument('--output_dir', type=str, default="data_out", required=False, help='Output data directory')
     parser.add_argument('--necessary_file', type=str, default="necessary.pkl")
@@ -113,20 +111,19 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(0)
 
-    # 가져온 문장별 데이터셋을 이용해서 각종 정보 및 학습셋 구성
+    # Creating various information and training sets using the sentence-specific data set
     train_data = data_loader(parameter["input_dir"])
     train_loader = Dataset(parameter, train_data)
     test_data = data_loader(parameter["input_dir"])
     test_loader = Dataset(parameter, test_data)
 
-    print(train_loader.parameter)
     # Load model
     models = []
     for i in range(parameter["num_ensemble"]):
         models.append(Model(train_loader.parameter, i))
         models[i].build_model()
 
-    # tensorflow session 생성 및 초기화
+    # tensorflow session init
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
 
