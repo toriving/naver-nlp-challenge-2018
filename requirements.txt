@@ -1,4 +1,4 @@
 # python==3.7.6
-tensorflow-gpu==1.15.4
+tensorflow-gpu==2.9.3
 scipy==1.5.2
 tqdm==4.48.2
